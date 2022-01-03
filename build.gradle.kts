@@ -41,11 +41,12 @@ setupDefaults {
         val nonAndroid by named(common)
         val native by named(common)
         val nonNative by named(common)
+        val nonJs by named(common)
 
-        android.dependsOn(nonNative)
-        jvm.dependsOn(nonAndroid, nonNative)
+        android.dependsOn(nonNative, nonJs)
+        jvm.dependsOn(nonAndroid, nonNative, nonJs)
         js.dependsOn(nonAndroid, nonNative)
-        darwinSet.dependsOn(nonAndroid, native)
+        darwinSet.dependsOn(nonAndroid, nonJs, native)
     }
 
     androidConfig(

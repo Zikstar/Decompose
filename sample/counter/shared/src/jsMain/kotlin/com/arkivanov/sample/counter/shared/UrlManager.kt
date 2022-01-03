@@ -3,6 +3,8 @@ package com.arkivanov.sample.counter.shared
 import com.arkivanov.decompose.Child
 import com.arkivanov.decompose.router.Router
 import com.arkivanov.decompose.router.RouterState
+import com.arkivanov.decompose.router.pop
+import com.arkivanov.decompose.router.push
 import kotlinx.browser.window
 import org.w3c.dom.History
 
@@ -11,14 +13,26 @@ actual fun <C : Any> Router<C, *>.manageBrowserHistory(
     getInfo: (stack: List<C>) -> PageInfo
 ) {
     var oldStack = state.value.getStack()
+    var isObserverEnabled = true
 
     state.subscribe { newState ->
         val newStack = newState.getStack()
+
+        if (!isObserverEnabled) {
+            oldStack = newStack
+            return@subscribe
+        }
+
+
         val newConfiguration = newState.activeChild.configuration
-        val newInfo = getInfo(newStack)
+        val newInfo = getInfo(newStack) // TODO: Not always needed
 
         when {
             newStack == oldStack -> window.history.replaceState(newInfo, newConfiguration)
+
+            newStack.dropLast(1) == oldStack.dropLast(1) -> {
+                window.history.replaceState(newInfo, newConfiguration)
+            }
 
             newStack.dropLast(1) == oldStack -> {
                 // TODO: pop multiple
@@ -36,17 +50,39 @@ actual fun <C : Any> Router<C, *>.manageBrowserHistory(
         oldStack = newStack
     }
 
-    window.onpopstate = { event ->
+    val poppedConfigurations = ArrayList<C>()
 
+    window.onpopstate = { event ->
+        val newConfigurationKey: Int? = event.state?.unsafeCast<Int>()
+
+        if (newConfigurationKey != null) {
+            val currentState = state.value
+
+            if (newConfigurationKey == currentState.activeChild.configuration.hashCode()) {
+                // TODO: remove?
+                // no-op
+            } else if (newConfigurationKey == currentState.backStack.lastOrNull()?.configuration?.hashCode()) {
+                poppedConfigurations += currentState.activeChild.configuration
+                isObserverEnabled = false
+                pop()
+                isObserverEnabled = true
+            } else if (newConfigurationKey == poppedConfigurations.lastOrNull()?.hashCode()) {
+                isObserverEnabled = false
+                push(poppedConfigurations.removeLast())
+                isObserverEnabled = true
+            } else {
+                error("Unsupported")
+            }
+        }
     }
 }
 
 private fun History.pushState(pageInfo: PageInfo, configuration: Any) {
-    pushState(data = configuration, title = pageInfo.title ?: "", url = pageInfo.url)
+    pushState(data = configuration.hashCode(), title = pageInfo.title ?: "", url = pageInfo.url)
 }
 
 private fun History.replaceState(pageInfo: PageInfo, configuration: Any) {
-    replaceState(data = configuration, title = pageInfo.title ?: "", url = pageInfo.url)
+    replaceState(data = configuration.hashCode(), title = pageInfo.title ?: "", url = pageInfo.url)
 }
 
 //private class BrowserHistory<C : Any> {

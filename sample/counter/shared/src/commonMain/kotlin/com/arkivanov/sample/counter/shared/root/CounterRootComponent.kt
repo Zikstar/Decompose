@@ -6,6 +6,7 @@ import com.arkivanov.decompose.router.Router
 import com.arkivanov.decompose.router.RouterState
 import com.arkivanov.decompose.router.pop
 import com.arkivanov.decompose.router.push
+import com.arkivanov.decompose.router.replaceCurrent
 import com.arkivanov.decompose.router.router
 import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.parcelable.Parcelable
@@ -50,8 +51,10 @@ class CounterRootComponent(
             isBackEnabled = configuration.isBackEnabled
         )
 
+    var i = 1
+
     override fun onNextChild() {
-        router.push(ChildConfiguration(index = router.state.value.backStack.size + 1, isBackEnabled = true))
+        router.replaceCurrent(ChildConfiguration(index = i++, isBackEnabled = true))
     }
 
     override fun onPrevChild() {

@@ -10,6 +10,7 @@ import org.w3c.dom.History
 actual fun <C : Any> Router<C, *>.manageBrowserHistory(
     getInfo: (stack: List<C>) -> PageInfo
 ) {
+    val history = BrowserHistory<C>()
     var oldStack = state.value.getStack()
     var skip = false
 
@@ -24,9 +25,9 @@ actual fun <C : Any> Router<C, *>.manageBrowserHistory(
 
         if (newStack.dropLast(1) == oldStack) {
             // TODO: push multiple
-            window.history.pushState(newInfo)
+            history.push(newInfo, newState.activeChild.configuration)
         } else {
-            window.history.replaceState(newInfo)
+            history.replace(newInfo, newState.activeChild.configuration)
         }
 
         oldStack = newStack
@@ -35,21 +36,64 @@ actual fun <C : Any> Router<C, *>.manageBrowserHistory(
     // TODO: unsubscribe?
     window.onpopstate =
         {
-            console.log(it)
-            val currentStack = state.value.getStack()
+            console.log(it.state)
+
+            val newInfo: PageInfo? = it.state?.unsafeCast<PageInfo>()
+
+            if (newInfo != null) {
+
+            }
+
+            val currentState = state.value
+            val currentStack = currentState.getStack()
+
+
             if (currentStack.size < 2) {
-                window.history.replaceState(getInfo(currentStack))
+                history.replace(getInfo(currentStack), currentState.activeChild.configuration)
             } else {
                 val prevInfo = getInfo(currentStack.dropLast(1))
                 if (window.history.getPageInfo()?.url == prevInfo.url) {
                     skip = true
                     pop()
+                    history.pop()
                 } else {
-                    window.history.replaceState(getInfo(currentStack))
+                    history.replace(getInfo(currentStack), currentState.activeChild.configuration)
                 }
             }
         }
 }
+
+private class BrowserHistory<C : Any> {
+
+    private val stack = ArrayList<HistoryEntry<C>>()
+    private var index = -1
+
+    fun push(pageInfo: PageInfo, configuration: C) {
+        window.history.pushState(pageInfo)
+
+        while (stack.lastIndex > index) {
+            stack.removeLast()
+        }
+        stack += HistoryEntry(pageInfo, configuration)
+        index++
+    }
+
+    fun replace(pageInfo: PageInfo, configuration: C) {
+        check(index >= 0)
+        window.history.replaceState(pageInfo)
+        stack[stack.lastIndex] = HistoryEntry(pageInfo, configuration)
+    }
+
+    fun pop() {
+        check(index > 0)
+        index--
+    }
+}
+
+private class HistoryEntry<out C : Any>(
+    val pageInfo: PageInfo,
+    val configuration: C,
+)
 
 private fun History.pushState(info: PageInfo) {
     console.log("pushState")

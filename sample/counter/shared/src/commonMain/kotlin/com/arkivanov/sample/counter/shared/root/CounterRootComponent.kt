@@ -51,7 +51,6 @@ class CounterRootComponent(
         )
 
     override fun onNextChild() {
-        println("Push child")
         router.push(ChildConfiguration(index = router.state.value.backStack.size + 1, isBackEnabled = true))
     }
 
